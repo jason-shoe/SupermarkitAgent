@@ -175,29 +175,66 @@ public class Agent extends SupermarketComponentImpl {
 			return false;
 		}
 	}
+
+	double[] getHitBox(Observation obs, int playerIndex) {
+		int collisionPlayerIdx = -1; 
+		double CART_LENGTH = 2;
+		double PLAYER_DIM = 1.5;
+
+		double[] bounds = {0, 0, 0, 0};
+		bounds[0] = obs.players[playerIndex].position[0] - PLAYER_DIM / 2;
+		bounds[1] = obs.players[playerIndex].position[1] - PLAYER_DIM / 2;
+		bounds[2] = obs.players[playerIndex].position[0] + PLAYER_DIM / 2;
+		bounds[3] = obs.players[playerIndex].position[1] + PLAYER_DIM / 2;
+
+		// if they have a cart
+		if (obs.players[playerIndex].curr_cart >= 0) {
+			// public int direction; // NORTH is 0, SOUTH is 1, EAST is 2, WEST is 3
+			if (obs.players[playerIndex].direction == 0) {
+				bounds[1] = obs.players[playerIndex].position[1] - PLAYER_DIM / 2 - CART_LENGTH;
+			} else if (obs.players[playerIndex].direction == 1) {
+				bounds[3] = obs.players[playerIndex].position[1] + PLAYER_DIM / 2 + CART_LENGTH;
+			} else if (obs.players[playerIndex].direction == 2) {
+				bounds[2] = obs.players[playerIndex].position[0] + PLAYER_DIM / 2 + CART_LENGTH;
+			} else {
+				bounds[0] = obs.players[playerIndex].position[0] - PLAYER_DIM / 2 - CART_LENGTH;
+			}
+		}
+
+		return bounds;
+	}
+
+	boolean hitBoxesOverlap(double[] playerOne, double[] playerTwo) {
+		if (playerOne[3] < playerTwo[1] 
+		|| playerOne[1] > playerTwo[3]) {
+			return false;
+		}
+		if (playerOne[2] < playerTwo[0]
+		|| playerOne[0] > playerTwo[2]) {
+			return false;
+		}
+		return true;
+	}
 	
 	boolean checkCollision(Observation obs) {
 		// TODO: need to finish this
 		boolean willCollide = false;
-		int collisionPlayerIdx = -1; 
-		double HITBOX_WIDTH = 2.5;
-		double HITBOX_HEIGHT = 2.5;
-		
+		int collisionPlayerIdx = -1;
+
+		double[] myHitbox = getHitBox(obs, myPlayerIdx);
 		for (int x = 0; x < obs.players.length; x++) {
 			if (x != myPlayerIdx) {
+				double[] otherHitbox = getHitBox(obs, x);
 				// if you're entering their hitbox
-				if (Math.abs(obs.players[x].position[0] - obs.players[myPlayerIdx].position[0]) < HITBOX_WIDTH) {
-					if (Math.abs(obs.players[x].position[1] - obs.players[myPlayerIdx].position[1]) < HITBOX_HEIGHT) {
-						// if you're moving in seperate directions
-						if (obs.players[x].direction != obs.players[myPlayerIdx].direction) {
+				if (hitBoxesOverlap(myHitbox, otherHitbox)) {
+					// System.out.println(Arrays.toString(myHitbox)+ " - " + Arrays.toString(otherHitbox));
+					if (obs.players[x].direction != obs.players[myPlayerIdx].direction) {
 							willCollide = true;
 							collisionPlayerIdx = x;
 						}
-					}
 				}
 			}
 		}
-		
 		if (!willCollide) {
 			return false;
 		}
@@ -250,7 +287,7 @@ public class Agent extends SupermarketComponentImpl {
 			if (exits[i].isBlocking(obs, obs.players[playerIdx])) {
 				if (state != State.UNBLOCK_EXIT) {
 					previousState = state;
-					System.out.println("Save PreviousState=" + previousState);
+					//System.out.println("Save PreviousState=" + previousState);
 					previousStatus = status;
 					//previousStatus = MoveStatus.PENDING;
 					state = State.UNBLOCK_EXIT;
@@ -276,7 +313,7 @@ public class Agent extends SupermarketComponentImpl {
 		double yComp = obs.players[myPlayerIdx].position[1] - (exits[goalIndex].position[1] + yShift); // shift north or south a little.
 		
 		if (status == MoveStatus.SUCCEEDED) {
-			System.out.println("PreviousState=" + previousState);
+			//System.out.println("PreviousState=" + previousState);
 			state = previousState;
 			status = previousStatus;
 		}
@@ -298,8 +335,19 @@ public class Agent extends SupermarketComponentImpl {
 
 	void moveToStart(Observation obs) {
 		
-		double xComp = obs.players[myPlayerIdx].position[0] - 4;
+		double xComp = obs.players[myPlayerIdx].position[0] - 3.8;
 		double yComp = obs.players[myPlayerIdx].position[1] - 18;
+
+		// check if someone else is in the cart area
+
+		for (int x = 0; x < obs.players.length; x++) {
+			if (x != myPlayerIdx) {
+				if (obs.players[x].position[0] < 3.8 && Math.abs(obs.players[x].position[1] - 18) < 2.2) {
+					nop();
+					return;
+				};
+			}
+		}
 		
 
 		if (! haveCart) {
@@ -374,7 +422,7 @@ public class Agent extends SupermarketComponentImpl {
 				int steps = 0;
 				obs = getLastObservation();
 				while (!obs.shelves[goalIndex].canInteract(obs.players[myPlayerIdx])) {
-					System.out.println("+=========================  Cannot interact, goNorth().");
+					//System.out.println("+=========================  Cannot interact, goNorth().");
 					goNorth();
 					steps++;
 					obs = getLastObservation();
@@ -387,9 +435,9 @@ public class Agent extends SupermarketComponentImpl {
 				interactWithObject();
 				System.out.print("Player has =");
 				if (obs.players[myPlayerIdx].holding_food == null) {
-					System.out.println("null");
+					//System.out.println("null");
 				} else {
-					System.out.println(obs.players[myPlayerIdx].holding_food);
+					//System.out.println(obs.players[myPlayerIdx].holding_food);
 				}
 
 				// move back to the cart.
@@ -461,7 +509,7 @@ public class Agent extends SupermarketComponentImpl {
 		double xComp = obs.players[myPlayerIdx].position[0] - 16.75; // The 16.75 puts the player in the RearAisleHub.
 		double yComp = Math.round(obs.players[myPlayerIdx].position[1]/4); // The closest aisle number.
 		yComp = obs.players[myPlayerIdx].position[1] - ((4*yComp) - .5); //Put the player in the middle of the closest Aisle
-		System.out.println("Crossing New yComp=" + yComp + ", xComp=" + xComp);
+		//System.out.println("Crossing New yComp=" + yComp + ", xComp=" + xComp);
 		move(obs, xComp, yComp); // move to the other side
 		if  (status == MoveStatus.SUCCEEDED) {
 			state = State.GETTING_GROCERY;
@@ -496,7 +544,7 @@ public class Agent extends SupermarketComponentImpl {
 				int steps = 0;
 				obs = getLastObservation();
 				while (!obs.counters[goalIndex].canInteract(obs.players[myPlayerIdx])) {
-					System.out.println("+=========================  Cannot interact, goEast().");
+					//System.out.println("+=========================  Cannot interact, goEast().");
 					goEast();
 					steps++;
 					obs = getLastObservation();
@@ -527,7 +575,7 @@ public class Agent extends SupermarketComponentImpl {
 				quantItems++;
 				obs = getLastObservation(); // Keep the observation current. Not really needed, feels safe.
 				// Used to test getting multiples of one food
-				// System.out.println("New List Quantity: " + Arrays.toString(obs.players[myPlayerIdx].list_quant));
+				// //System.out.println("New List Quantity: " + Arrays.toString(obs.players[myPlayerIdx].list_quant));
 				// obs.players[myPlayerIdx].list_quant[0] = 5;
 			}
 
@@ -611,19 +659,19 @@ public class Agent extends SupermarketComponentImpl {
 	void move (Observation obs, double xComp, double yComp) {
 		double playery = obs.players[myPlayerIdx].position[1];
 		if (yComp > .15 && playery > 3.05) { //Was checking ycomp > .75
-			System.out.println("yComp="+yComp+"goNorth().");
+			//System.out.println("yComp="+yComp+"goNorth().");
 			goNorth();
 		} else if (yComp < -0.25) { //Was checking ycom -1.25
-			System.out.println("yComp="+yComp+"goSouth().");
+			//System.out.println("yComp="+yComp+"goSouth().");
 			goSouth();
 		} else if (xComp < -.8) {
-			System.out.println("xComp="+xComp+"goEast().");
+			//System.out.println("xComp="+xComp+"goEast().");
 			goEast();
 		} else if (xComp > .5) {
-			System.out.println("xComp="+xComp+"goWest().");
+			//System.out.println("xComp="+xComp+"goWest().");
 			goWest();
 		} else {
-			System.out.println("Success");
+			//System.out.println("Success");
 			status = MoveStatus.SUCCEEDED;
 			return;
 		}
@@ -666,31 +714,35 @@ public class Agent extends SupermarketComponentImpl {
 		String goal = "cart return";
 		// this is called every 100ms
 
+		System.out.println("getting obs " + String.valueOf(myPlayerIdx));
 		Observation obs = getLastObservation();
+		if (myPlayerIdx == 0) {
+			System.out.println("positions" + Arrays.toString(obs.players[0].position) + " - " + Arrays.toString(obs.players[1].position));
+		}
 		// This  is for testing the case when prepared foods is first.
 		// The original code crashed into the end of the shelf.
 		//  obs.players[myPlayerIdx].shopping_list[0] = "prepared foods";
 		//  obs.players[myPlayerIdx].list_quant[0] = 5;
 		// obs.players[myPlayerIdx].shopping_list[1] = "fresh fish";
 
-		System.out.println(obs.players.length + " players");
-		System.out.println(obs.carts.length + " carts");
-		System.out.println(obs.shelves.length + " shelves");
-		System.out.println(obs.counters.length + " counters");
-		System.out.println(obs.registers.length + " registers");
-		System.out.println(obs.cartReturns.length + " cartReturns");
+		//System.out.println(obs.players.length + " players");
+		//System.out.println(obs.carts.length + " carts");
+		//System.out.println(obs.shelves.length + " shelves");
+		//System.out.println(obs.counters.length + " counters");
+		//System.out.println(obs.registers.length + " registers");
+		//System.out.println(obs.cartReturns.length + " cartReturns");
 		// print out the shopping list
-		System.out.println("Shoppping list: " + Arrays.toString(obs.players[myPlayerIdx].shopping_list));
-		System.out.println("List Quantity: " + Arrays.toString(obs.players[myPlayerIdx].list_quant));
-		System.out.println("There is a cart: " + (obs.carts.length > 0) + " for carts = " + obs.carts.length);
-		System.out.println("player.curr_cart = " + obs.players[myPlayerIdx].curr_cart);
+		//System.out.println("Shoppping list: " + Arrays.toString(obs.players[myPlayerIdx].shopping_list));
+		//System.out.println("List Quantity: " + Arrays.toString(obs.players[myPlayerIdx].list_quant));
+		//System.out.println("There is a cart: " + (obs.carts.length > 0) + " for carts = " + obs.carts.length);
+		//System.out.println("player.curr_cart = " + obs.players[myPlayerIdx].curr_cart);
 		for(int i = 0; i < obs.carts.length; i++ ) {
-			System.out.println("Cart " + i + ":");
-			System.out.println("  Cart owner: " + obs.carts[i].owner);
-			System.out.println("  Cart contents: " + Arrays.toString(obs.carts[i].contents));
-			System.out.println("  Cart contents qty: " + Arrays.toString(obs.carts[i].contents_quant));
-			System.out.println("  Cart purchased: " + Arrays.toString(obs.carts[i].purchased_contents));
-			System.out.println("  Cart purchased qty: " + Arrays.toString(obs.carts[i].purchased_quant));
+			//System.out.println("Cart " + i + ":");
+			//System.out.println("  Cart owner: " + obs.carts[i].owner);
+			//System.out.println("  Cart contents: " + Arrays.toString(obs.carts[i].contents));
+			//System.out.println("  Cart contents qty: " + Arrays.toString(obs.carts[i].contents_quant));
+			//System.out.println("  Cart purchased: " + Arrays.toString(obs.carts[i].purchased_contents));
+			//System.out.println("  Cart purchased qty: " + Arrays.toString(obs.carts[i].purchased_quant));
 		}
 
 		if (!initialized) {
@@ -708,7 +760,7 @@ public class Agent extends SupermarketComponentImpl {
 				state = State.MOVE_TO_CHECKOUT;
 			} else if ((state == State.LEAVE) && hasUnpurchasedFood(obs, myPlayerIdx)) {
 				//ShopliftingNorm! Go back and pay for the food.
-				System.out.println("Almost left without paying!===========================================");
+				//System.out.println("Almost left without paying!===========================================");
 				goalLocation = "checkout";
 				state = State.MOVE_TO_CHECKOUT;
 			}
@@ -746,8 +798,10 @@ public class Agent extends SupermarketComponentImpl {
 		// 2. counters, the goalindex will be the counter that the food is on 
 		// 3. registers, will only go to goalindex=0, which is where the exit is
 		
-		System.out.println("Goal Index= " + goalIndex + ", state=" + state + ", shoppingListIndex" + String.valueOf(shoppingListIndex));
+		//System.out.println("Goal Index= " + goalIndex + ", state=" + state + ", shoppingListIndex" + String.valueOf(shoppingListIndex));
 		if (checkCollision(obs)) {
+			nop();
+			System.out.println("Will Collide" + String.valueOf(myPlayerIdx) + " " + String.valueOf(shoppingListIndex));
 		} else if (state == State.RETURN_TO_ORIGINAL_AISLE) {
 			returnToOriginalAisle(obs);
 		} else if (state == State.MOVE_TO_START) {
@@ -770,7 +824,7 @@ public class Agent extends SupermarketComponentImpl {
 			goalIndex = 0; // 0 is the exit this uses. If we used the other exit, this should still work.
 			// Used to test violating the BlockingExitNorm.
 			//if ((blockDoorCount > 5) || (obs.players[myPlayerIdx].position[0] > 0.9)) {
-				System.out.println( "Seeking Exit");
+				//System.out.println( "Seeking Exit");
 				seekExit(obs, goalIndex);
 			//}	
 		} else if (state == State.UNBLOCK_EXIT) {
