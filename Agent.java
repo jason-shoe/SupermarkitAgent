@@ -180,8 +180,8 @@ public class Agent extends SupermarketComponentImpl {
 
 	double[] getHitBox(Observation obs, int playerIndex) {
 		int collisionPlayerIdx = -1; 
-		double CART_LENGTH = 2.7;
-		double PLAYER_DIM = 2;
+		double CART_LENGTH = 2;
+		double PLAYER_DIM = 1.5;
 
 		double[] bounds = {0, 0, 0, 0};
 		bounds[0] = obs.players[playerIndex].position[0] - PLAYER_DIM / 2;
@@ -249,6 +249,9 @@ public class Agent extends SupermarketComponentImpl {
 		if (!willCollide) {
 			return false;
 		}
+		if (myPlayerIdx == 1) {
+			System.out.println("will collide here" +  String.valueOf(collisionPlayerIdx));
+		}
 
 		int myDirection = obs.players[myPlayerIdx].direction;
 		double[] myPos = obs.players[myPlayerIdx].position;
@@ -308,10 +311,10 @@ public class Agent extends SupermarketComponentImpl {
 				state = State.RETURN_TO_ORIGINAL_AISLE;
 			} else if (state == State.CROSS_TO_FRONT && obs.players[myPlayerIdx].direction == 3) {
 				state = State.CROSS_TO_REAR;
-				goEast();
+				return false;
 			} else if (state == State.CROSS_TO_REAR && obs.players[myPlayerIdx].direction == 2) {
 				state = State.CROSS_TO_FRONT;
-				goWest();
+				return false;
 			}
 			
 		}
@@ -606,7 +609,7 @@ public class Agent extends SupermarketComponentImpl {
 			return;
 		}
 
-		double xComp = obs.players[myPlayerIdx].position[0] - obs.counters[goalIndex].position[0] + .65;
+		double xComp = obs.players[myPlayerIdx].position[0] - obs.counters[goalIndex].position[0] + .80;
 		double yComp = obs.players[myPlayerIdx].position[1] - (obs.counters[goalIndex].position[1] + (.5 * obs.counters[goalIndex].height));
 		if (status == MoveStatus.SUCCEEDED) {
 			// let go of the cart
@@ -751,6 +754,7 @@ public class Agent extends SupermarketComponentImpl {
 			//System.out.println("xComp="+xComp+"goWest().");
 			goWest();
 		} else {
+			nop();
 			//System.out.println("Success");
 			status = MoveStatus.SUCCEEDED;
 			return;
