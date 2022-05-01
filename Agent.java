@@ -59,6 +59,7 @@
 *					functions for getting a specific type of food or checking out.
 */
 
+
 import java.util.Arrays;
 import com.supermarket.*;
 import java.util.stream.IntStream;
@@ -71,6 +72,7 @@ enum State {
 	RETURN_TO_ORIGINAL_AISLE,
 	MOVE_OUT_OF_AISLE,
 	CROSS_TO_REAR,
+	CROSS_TO_FRONT,
 	MOVE_TO_CHECKOUT,
 	SEEK_EXIT,
 	UNBLOCK_EXIT,
@@ -343,7 +345,12 @@ public class Agent extends SupermarketComponentImpl {
 		for (int x = 0; x < obs.players.length; x++) {
 			if (x != myPlayerIdx) {
 				if (obs.players[x].position[0] < 3.8 && Math.abs(obs.players[x].position[1] - 18) < 2.2) {
-					nop();
+					// If there are other players near the cart, go to th erear Aisle to
+					// give them time to get out.
+					previousState = state; // Save this state for when it's done.
+					state = State.CROSS_TO_REAR; // Change the state to get to the counter safely.
+					status = MoveStatus.PENDING;
+					crossToRear(obs);
 					return;
 				};
 			}
@@ -351,10 +358,17 @@ public class Agent extends SupermarketComponentImpl {
 		
 
 		if (! haveCart) {
-			if (obs.inRearAisleHub(myPlayerIdx) || obs.inAisleHub(myPlayerIdx)) {
+			if (obs.inRearAisleHub(myPlayerIdx)) {
+				// Move to the front aisle hub without crashing into a shelf.
+				previousState = state; // Save this state for when it's done.
+				state = State.CROSS_TO_FRONT;
+				status = MoveStatus.PENDING;
+				crossToFront(obs);
+				return;
+			} else if (obs.inAisleHub(myPlayerIdx)) {
 				move(obs, xComp, yComp);
 			} else {
-				if (yComp < 0) {
+				if (xComp < 0) {
 					goEast();
 				} else {
 					goWest();
@@ -512,17 +526,39 @@ public class Agent extends SupermarketComponentImpl {
 		//System.out.println("Crossing New yComp=" + yComp + ", xComp=" + xComp);
 		move(obs, xComp, yComp); // move to the other side
 		if  (status == MoveStatus.SUCCEEDED) {
-			state = State.GETTING_GROCERY;
+			state = previousState;
 			status = MoveStatus.PENDING;
 		}
 	}
+	
+		
+	// This will cross the player from the rear aisle hub to the front aisle hub without
+	// crashing the player into the end of a shelf. It goes to the center of the
+	// closest aisle first, then moves West.
+	void crossToFront(Observation obs) {
+		double xComp = obs.players[myPlayerIdx].position[0] - 4.5; // The 4.5 puts the player in the Front AisleHub.
+		double yComp = Math.round(obs.players[myPlayerIdx].position[1]/4); // The closest aisle number.
+		// System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%  " + myPlayerIdx + "%%%%%%%%%%%%%%%%%%");
+		yComp = obs.players[myPlayerIdx].position[1] - ((4*yComp) - .5); //Put the player in the middle of the closest Aisle
+		System.out.println("crossToFront New yComp=" + yComp + ", xComp=" + xComp);
+		move(obs, xComp, yComp); // move to the other side
+		if  (status == MoveStatus.SUCCEEDED) {
+			state = previousState;
+			status = MoveStatus.PENDING;
+		}
+	}
+	
+
 	
 	// This will go to a counter and get a specific item fr om the counter.
 	void getCounterItem(Observation obs, int goalIndex) {
 		// If the player is on the  opposite side of  the store from the counters, make sure the
 		// player does not crash into the shelves.
 		if (obs.players[myPlayerIdx].position[0] < 10.0) {
+			previousState = state; // Save this state for when it's done.
 			state = State.CROSS_TO_REAR; // Change the state to get to the counter safely.
+			status = MoveStatus.PENDING;
+			crossToRear(obs);
 			return;
 		}
 
@@ -818,6 +854,8 @@ public class Agent extends SupermarketComponentImpl {
 			moveOutOfAisle(obs, goalIndex);
 		} else if (state == State.CROSS_TO_REAR) {
 			crossToRear(obs);
+		} else if (state == State.CROSS_TO_FRONT) {
+			crossToFront(obs);
 		} else if (state == State.MOVE_TO_CHECKOUT) {
 			goToRegister(obs, goalIndex);
 		} else if (state == State.LEAVE) {
