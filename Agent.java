@@ -255,16 +255,16 @@ public class Agent extends SupermarketComponentImpl {
 		int otherDirection = obs.players[collisionPlayerIdx].direction;
 		double[] otherPos = obs.players[collisionPlayerIdx].position;
 
-		if (myDirection == 0 && otherPos[1] > myPos[1]) {
+		if (myDirection == 0 && otherPos[1] > myPos[1] + 0.5) {
 			return false;
 		}
-		if (myDirection == 1 && otherPos[1] < myPos[1]) {
+		if (myDirection == 1 && otherPos[1] + 0.5 < myPos[1] ) {
 			return false;
 		}
-		if (myDirection == 2 && otherPos[0] < myPos[0]) {
+		if (myDirection == 2 && otherPos[0] + 0.5 < myPos[0]) {
 			return false;
 		}
-		if (myDirection == 3 && otherPos[0] > myPos[0]) {
+		if (myDirection == 3 && otherPos[0] > myPos[0] + 0.5) {
 			return false;
 		}
 		
@@ -306,13 +306,16 @@ public class Agent extends SupermarketComponentImpl {
 				}
 				setNextShoppingListIndex(false);
 				state = State.RETURN_TO_ORIGINAL_AISLE;
+			} else if (state == State.CROSS_TO_FRONT && obs.players[myPlayerIdx].direction == 3) {
+				state = State.CROSS_TO_REAR;
+				goEast();
+			} else if (state == State.CROSS_TO_REAR && obs.players[myPlayerIdx].direction == 2) {
+				state = State.CROSS_TO_FRONT;
+				goWest();
 			}
 			
 		}
 
-		if (state == State.CROSS_TO_FRONT || state == State.CROSS_TO_REAR) {
-			return false;
-		}
 		return myDirection > otherDirection;
 
 	}
